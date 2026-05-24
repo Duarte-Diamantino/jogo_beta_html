@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Survival Art - Corrigido</title>
+<title>Survival Art - Corrigido e Melhorado</title>
 
 <style>
 * {
@@ -33,8 +33,24 @@ body {
     margin-bottom: 5px;
     background: #1a1a2e;
     padding: 10px;
-    border-radius: 8px;
+    border-radius: 8px 8px 0 0;
 }
+
+#inventory-ui {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 900px;
+    margin-bottom: 5px;
+    background: #0f3460;
+    padding: 5px 10px;
+    border-radius: 0 0 8px 8px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.inv-item { color: #0ff; }
+.inv-value { color: #fff; margin-left: 3px; font-size: 14px;}
 
 .ui-section {
     display: flex;
@@ -190,6 +206,13 @@ span.danger { color: #e94560; }
     </div>
 </div>
 
+<div id="inventory-ui">
+    <span class="inv-item">Invis: <span class="inv-value" id="inv-invis">0</span></span>
+    <span class="inv-item">Parede: <span class="inv-value" id="inv-wall">0</span></span>
+    <span class="inv-item">Slow: <span class="inv-value" id="inv-slow">0</span></span>
+    <span class="inv-item">Bomba: <span class="inv-value" id="inv-bomb">0</span></span>
+</div>
+
 <div id="canvas-container">
     <canvas id="gameCanvas" width="800" height="400"></canvas>
 </div>
@@ -247,10 +270,10 @@ let player = {
     inSafeZone: true
 };
 
-let mouse = {
-    x: WIDTH / 2,
-    y: HEIGHT / 2
-};
+// Guarda a última posição válida (útil para fechar o rasto perfeitamente)
+let lastSafePos = { x: player.x, y: player.y };
+
+let mouse = { x: WIDTH / 2, y: HEIGHT / 2 };
 
 let inputX = 0;
 let inputY = 0;
@@ -263,12 +286,7 @@ let bullets = [];
 let explosions = [];
 let floatingTexts = [];
 
-let portal = {
-    active: false,
-    x: 0,
-    y: 0,
-    size: 40
-};
+let portal = { active: false, x: 0, y: 0, size: 40 };
 
 let isInvincible = false;
 let enemiesSlowed = false;
@@ -289,9 +307,7 @@ function keyOf(x, y) {
 
 function rectToCanvas(e) {
     const rect = canvas.getBoundingClientRect();
-
-    let clientX;
-    let clientY;
+    let clientX, clientY;
 
     if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
@@ -324,13 +340,11 @@ canvas.addEventListener('mousedown', e => {
         updateUI();
         return;
     }
-
     placeWall(mouse.x, mouse.y);
 });
 
 canvas.addEventListener('touchstart', e => {
     e.preventDefault();
-
     const pos = rectToCanvas(e);
     mouse.x = pos.x;
     mouse.y = pos.y;
@@ -341,7 +355,6 @@ canvas.addEventListener('touchstart', e => {
         updateUI();
         return;
     }
-
     placeWall(mouse.x, mouse.y);
 }, { passive: false });
 
@@ -359,10 +372,8 @@ function placeWall(mx, my) {
     const gridY = snap(my);
 
     if (
-        gridX < SAFE_BORDER ||
-        gridX >= WIDTH - SAFE_BORDER ||
-        gridY < SAFE_TOP ||
-        gridY >= HEIGHT - SAFE_BORDER
+        gridX < SAFE_BORDER || gridX >= WIDTH - SAFE_BORDER ||
+        gridY < SAFE_TOP || gridY >= HEIGHT - SAFE_BORDER
     ) return;
 
     if (!isBlackWall(gridX, gridY) && !isWall(gridX, gridY)) {
@@ -392,34 +403,14 @@ window.setDir = function(dx, dy) {
 };
 
 document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-        inputX = 0;
-        inputY = -SIZE;
-    }
-
-    if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-        inputX = 0;
-        inputY = SIZE;
-    }
-
-    if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
-        inputX = -SIZE;
-        inputY = 0;
-    }
-
-    if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
-        inputX = SIZE;
-        inputY = 0;
-    }
-
+    if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') { inputX = 0; inputY = -SIZE; }
+    if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') { inputX = 0; inputY = SIZE; }
+    if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') { inputX = -SIZE; inputY = 0; }
+    if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') { inputX = SIZE; inputY = 0; }
     if (e.key === '1') useInvis();
     if (e.key === '3') useSlow();
     if (e.key === '4') useBomb();
-
-    if (e.code === 'Space') {
-        e.preventDefault();
-        activateShootMode();
-    }
+    if (e.code === 'Space') { e.preventDefault(); activateShootMode(); }
 });
 
 document.addEventListener('keyup', e => {
@@ -430,54 +421,30 @@ document.addEventListener('keyup', e => {
 });
 
 function isSafe(x, y) {
-    return (
-        y < SAFE_TOP ||
-        y >= HEIGHT - SAFE_BORDER ||
-        x < SAFE_BORDER ||
-        x >= WIDTH - SAFE_BORDER
-    );
+    return (y < SAFE_TOP || y >= HEIGHT - SAFE_BORDER || x < SAFE_BORDER || x >= WIDTH - SAFE_BORDER);
 }
 
 function isWall(x, y) {
-    const gx = snap(x);
-    const gy = snap(y);
-    return walls.some(w => w.x === gx && w.y === gy);
+    return walls.some(w => w.x === snap(x) && w.y === snap(y));
 }
 
 function isBlackWall(x, y) {
     const gx = snap(x);
     const gy = snap(y);
-
-    return blackWalls.some(bw =>
-        gx >= bw.x &&
-        gx < bw.x + bw.w &&
-        gy >= bw.y &&
-        gy < bw.y + bw.h
-    );
-}
-
-function isBlockedCell(x, y) {
-    return isWall(x, y) || isBlackWall(x, y);
+    return blackWalls.some(bw => gx >= bw.x && gx < bw.x + bw.w && gy >= bw.y && gy < bw.y + bw.h);
 }
 
 function generateBlackWalls() {
     blackWalls = [];
-
     const numBlocks = Math.min(currentHorde * 2, 8);
-
     for (let i = 0; i < numBlocks; i++) {
         let bw = (Math.random() > 0.5 ? 2 : 4) * SIZE;
         let bh = (Math.random() > 0.5 ? 4 : 2) * SIZE;
-
         let maxW = WIDTH - SAFE_BORDER * 2 - bw;
         let maxH = HEIGHT - SAFE_TOP - SAFE_BORDER - bh;
-
-        let bx = snap(Math.random() * maxW) + SAFE_BORDER;
-        let by = snap(Math.random() * maxH) + SAFE_TOP;
-
         blackWalls.push({
-            x: bx,
-            y: by,
+            x: snap(Math.random() * maxW) + SAFE_BORDER,
+            y: snap(Math.random() * maxH) + SAFE_TOP,
             w: bw,
             h: bh
         });
@@ -486,65 +453,46 @@ function generateBlackWalls() {
 
 function spawnEnemy() {
     if (portal.active) return;
-
     let spawned = false;
-
     for (let i = 0; i < 30; i++) {
         let isBig = Math.random() > 0.5;
         let radius = isBig ? 15 : 8;
         let speed = isBig ? 3 : 6;
         let hp = isBig ? 5 : 2;
-
         let ex = Math.random() * (WIDTH - SAFE_BORDER * 2 - radius * 2) + SAFE_BORDER + radius;
         let ey = Math.random() * (HEIGHT - SAFE_TOP - SAFE_BORDER - radius * 2) + SAFE_TOP + radius;
-
+        
         if (!isBlackWall(ex, ey) && !isWall(ex, ey)) {
             enemies.push({
-                x: ex,
-                y: ey,
+                x: ex, y: ey,
                 vx: (Math.random() > 0.5 ? 1 : -1) * speed,
                 vy: (Math.random() > 0.5 ? 1 : -1) * speed,
-                size: radius,
-                hp: hp,
-                maxHp: hp
+                size: radius, hp: hp, maxHp: hp
             });
-
             spawned = true;
             break;
         }
     }
-
-    if (!spawned && enemies.length === 0 && !portal.active) {
-        openPortal();
-    }
+    if (!spawned && enemies.length === 0 && !portal.active) openPortal();
 }
 
 function shootTowards(targetX, targetY) {
     if (coins < 1) return;
-
     coins--;
-
     let px = player.x + SIZE / 2;
     let py = player.y + SIZE / 2;
-
     let dx = targetX - px;
     let dy = targetY - py;
     let mag = Math.sqrt(dx * dx + dy * dy);
-
-    if (mag === 0) {
+    
+    if (mag !== 0) {
+        bullets.push({ x: px, y: py, vx: (dx / mag) * 15, vy: (dy / mag) * 15 });
+    } else {
         coins++;
-        return;
     }
-
-    bullets.push({
-        x: px,
-        y: py,
-        vx: (dx / mag) * 15,
-        vy: (dy / mag) * 15
-    });
-
     updateUI();
 }
+
 function openPortal() {
     portal.active = true;
     portal.x = WIDTH / 2 - portal.size / 2;
@@ -557,14 +505,7 @@ window.buySkill = function(type) {
         alert("Sobe para a Base Principal para comprar!");
         return;
     }
-
-    const costs = {
-        invis: 10,
-        wall: 15,
-        slow: 20,
-        bomb: 30
-    };
-
+    const costs = { invis: 10, wall: 15, slow: 20, bomb: 30 };
     if (coins >= costs[type]) {
         coins -= costs[type];
         inventory[type]++;
@@ -574,96 +515,56 @@ window.buySkill = function(type) {
 
 window.useInvis = function() {
     if (inventory.invis <= 0 || isInvincible) return;
-
     inventory.invis--;
     isInvincible = true;
-
-    setTimeout(() => {
-        isInvincible = false;
-        updateUI();
-    }, 3000);
-
+    setTimeout(() => { isInvincible = false; updateUI(); }, 3000);
     updateUI();
 };
 
 window.useSlow = function() {
     if (inventory.slow <= 0 || enemiesSlowed) return;
-
     inventory.slow--;
     enemiesSlowed = true;
-
-    setTimeout(() => {
-        enemiesSlowed = false;
-        updateUI();
-    }, 5000);
-
+    setTimeout(() => { enemiesSlowed = false; updateUI(); }, 5000);
     updateUI();
 };
 
 window.useBomb = function() {
     if (inventory.bomb <= 0) return;
-
     inventory.bomb--;
-
     let px = player.x + SIZE / 2;
     let py = player.y + SIZE / 2;
-
-    explosions.push({
-        x: px,
-        y: py,
-        radius: 0,
-        maxRadius: 160,
-        color: "rgba(255,100,0,"
-    });
-
+    explosions.push({ x: px, y: py, radius: 0, maxRadius: 160, color: "rgba(255,100,0," });
+    
     enemies.forEach(e => {
-        if (Math.hypot(e.x - px, e.y - py) <= 160) {
-            e.hp -= 3;
-        }
+        if (Math.hypot(e.x - px, e.y - py) <= 160) e.hp -= 3;
     });
-
     checkDeadEnemies();
     updateUI();
 };
 
 function updateUI() {
-    let weight =
-        inventory.invis * 1 +
-        inventory.wall * 2 +
-        inventory.slow * 3 +
-        inventory.bomb * 5;
-
+    let weight = inventory.invis*1 + inventory.wall*2 + inventory.slow*3 + inventory.bomb*5;
     let speedPct = Math.max(30, 100 - weight * 3);
 
     document.getElementById('coins').innerText = coins + " 🪙";
     document.getElementById('weight-display').innerText = weight + " KG";
     document.getElementById('speed-display').innerText = speedPct + "%";
     document.getElementById('horde-display').innerText = currentHorde;
-    document.getElementById('horde-progress').innerText =
-        enemiesKilled + "/" + hordeTarget;
+    document.getElementById('horde-progress').innerText = enemiesKilled + "/" + hordeTarget;
+
+    // Actualizar Inventário
+    document.getElementById('inv-invis').innerText = inventory.invis;
+    document.getElementById('inv-wall').innerText = inventory.wall;
+    document.getElementById('inv-slow').innerText = inventory.slow;
+    document.getElementById('inv-bomb').innerText = inventory.bomb;
 
     let status = document.getElementById('status');
-
-    if (shootMode) {
-        status.innerText = "ESCOLHE DIREÇÃO";
-        status.style.color = "#ffd700";
-    }
-    else if (portal.active) {
-        status.innerText = "PORTAL";
-        status.style.color = "#0ff";
-    }
-    else if (player.y < SAFE_TOP) {
-        status.innerText = "BASE";
-        status.style.color = "#0f0";
-    }
-    else if (isInvincible) {
-        status.innerText = "IMUNE";
-        status.style.color = "#0ff";
-    }
-    else {
-        status.innerText = "PERIGO";
-        status.style.color = "#e94560";
-    }
+    if (shootMode) { status.innerText = "ESCOLHE DIREÇÃO"; status.style.color = "#ffd700"; }
+    else if (portal.active) { status.innerText = "PORTAL"; status.style.color = "#0ff"; }
+    else if (player.y < SAFE_TOP) { status.innerText = "BASE"; status.style.color = "#0f0"; }
+    else if (isInvincible) { status.innerText = "IMUNE"; status.style.color = "#0ff"; }
+    else { status.innerText = "PERIGO"; status.style.color = "#e94560"; }
 }
 
 function checkDeadEnemies() {
@@ -676,365 +577,195 @@ function checkDeadEnemies() {
         return true;
     });
 
-    if (
-        enemiesKilled >= hordeTarget &&
-        enemies.length === 0 &&
-        !portal.active
-    ) {
+    if (enemiesKilled >= hordeTarget && enemies.length === 0 && !portal.active) {
         openPortal();
-    }
-    else if (!portal.active) {
-        while (
-            enemies.length < maxEnemiesOnScreen &&
-            (enemiesKilled + enemies.length) < hordeTarget
-        ) {
+    } else if (!portal.active) {
+        while (enemies.length < maxEnemiesOnScreen && (enemiesKilled + enemies.length) < hordeTarget) {
             spawnEnemy();
         }
     }
-
     updateUI();
 }
 
+// NOVA LÓGICA DE PREENCHIMENTO DE POLÍGONOS!
 function checkTrappedEnemies() {
-
-    let reachable = new Set();
-    let queue = [];
-
-    for (let y = SAFE_TOP; y < HEIGHT - SAFE_BORDER; y += SIZE) {
-
-        for (let x = SAFE_BORDER; x < WIDTH - SAFE_BORDER; x += SIZE) {
-
-            if (!isBlockedCell(x, y)) {
-
-                if (
-                    isSafe(x - SIZE, y) ||
-                    isSafe(x + SIZE, y) ||
-                    isSafe(x, y - SIZE) ||
-                    isSafe(x, y + SIZE)
-                ) {
-                    let k = keyOf(x, y);
-
-                    reachable.add(k);
-
-                    queue.push({
-                        x,
-                        y
-                    });
-                }
-            }
-        }
-    }
-
-    while (queue.length > 0) {
-
-        let current = queue.shift();
-
-        const dirs = [
-            { x: SIZE, y: 0 },
-            { x: -SIZE, y: 0 },
-            { x: 0, y: SIZE },
-            { x: 0, y: -SIZE }
-        ];
-
-        for (let d of dirs) {
-
-            let nx = current.x + d.x;
-            let ny = current.y + d.y;
-
-            if (
-                nx >= SAFE_BORDER &&
-                nx < WIDTH - SAFE_BORDER &&
-                ny >= SAFE_TOP &&
-                ny < HEIGHT - SAFE_BORDER
-            ) {
-
-                if (!isBlockedCell(nx, ny)) {
-
-                    let k = keyOf(nx, ny);
-
-                    if (!reachable.has(k)) {
-                        reachable.add(k);
-
-                        queue.push({
-                            x: nx,
-                            y: ny
-                        });
-                    }
-                }
-            }
-        }
-    }
-
+    let visited = new Set();
     let newWalls = [];
 
     for (let y = SAFE_TOP; y < HEIGHT - SAFE_BORDER; y += SIZE) {
-
         for (let x = SAFE_BORDER; x < WIDTH - SAFE_BORDER; x += SIZE) {
+            
+            let startKey = keyOf(x, y);
+            if (visited.has(startKey) || isWall(x, y) || isBlackWall(x, y)) continue;
 
-            let k = keyOf(x, y);
+            // Faz flood-fill para descobrir esta região vazia
+            let queue = [{x, y}];
+            let region = [];
+            let touchesSafeZone = false;
+            
+            visited.add(startKey);
 
-            if (
-                !reachable.has(k) &&
-                !isBlockedCell(x, y)
-            ) {
+            while (queue.length > 0) {
+                let curr = queue.shift();
+                region.push(curr);
 
-                newWalls.push({
-                    x,
-                    y
-                });
+                // Se tocou numa borda da zona segura
+                if (isSafe(curr.x - SIZE, curr.y) || isSafe(curr.x + SIZE, curr.y) || 
+                    isSafe(curr.x, curr.y - SIZE) || isSafe(curr.x, curr.y + SIZE)) {
+                    touchesSafeZone = true;
+                }
+
+                const dirs = [ {x: SIZE, y: 0}, {x: -SIZE, y: 0}, {x: 0, y: SIZE}, {x: 0, y: -SIZE} ];
+                for (let d of dirs) {
+                    let nx = curr.x + d.x;
+                    let ny = curr.y + d.y;
+                    
+                    if (nx >= SAFE_BORDER && nx < WIDTH - SAFE_BORDER && ny >= SAFE_TOP && ny < HEIGHT - SAFE_BORDER) {
+                        if (!isWall(nx, ny) && !isBlackWall(nx, ny)) {
+                            let nk = keyOf(nx, ny);
+                            if (!visited.has(nk)) {
+                                visited.add(nk);
+                                queue.push({x: nx, y: ny});
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Se a região INTEIRA não tocou em nenhuma safe-zone, é porque está cercada por paredes cinzas! PINTA!
+            if (!touchesSafeZone) {
+                newWalls.push(...region);
             }
         }
     }
 
     if (newWalls.length > 0) {
-
         walls.push(...newWalls);
-
         coins += Math.floor(newWalls.length / 2);
-
-        explosions.push({
-            x: player.x,
-            y: player.y,
-            radius: 0,
-            maxRadius: 100,
-            color: "rgba(0,255,255,"
-        });
+        explosions.push({ x: player.x, y: player.y, radius: 0, maxRadius: 100, color: "rgba(0,255,255," });
     }
 
+    // Esmagar inimigos
     enemies = enemies.filter(enemy => {
-
         let gx = snap(enemy.x);
         let gy = snap(enemy.y);
-
         if (isWall(gx, gy)) {
-
-            explosions.push({
-                x: enemy.x,
-                y: enemy.y,
-                radius: 0,
-                maxRadius: 60,
-                color: "rgba(150,0,255,"
-            });
-
-            floatingTexts.push({
-                x: enemy.x,
-                y: enemy.y,
-                text: "ESMAGADO!",
-                life: 40,
-                color: "#ffd700"
-            });
-
+            explosions.push({ x: enemy.x, y: enemy.y, radius: 0, maxRadius: 60, color: "rgba(150,0,255," });
+            floatingTexts.push({ x: enemy.x, y: enemy.y, text: "ESMAGADO!", life: 40, color: "#ffd700" });
             coins += 50;
             return false;
         }
-
         return true;
     });
-
     checkDeadEnemies();
 }
 
 function nextHorde() {
-
     portal.active = false;
-
     currentHorde++;
     hordeTarget += 3;
     maxEnemiesOnScreen++;
-
     enemiesKilled = 0;
 
     WIDTH = Math.min(WIDTH + 60, 1200);
     HEIGHT = Math.min(HEIGHT + 40, 800);
-
     canvas.width = WIDTH;
     canvas.height = HEIGHT;
 
     player.x = snap(WIDTH / 2);
     player.y = 20;
-
-    trail = [];
-    walls = [];
-    bullets = [];
+    trail = []; walls = []; bullets = [];
 
     generateBlackWalls();
-
-    for (let i = 0; i < maxEnemiesOnScreen; i++) {
-        spawnEnemy();
-    }
-
+    for (let i = 0; i < maxEnemiesOnScreen; i++) spawnEnemy();
     updateUI();
 }
 
 function update() {
-
     if (portal.active) {
-
-        if (
-            player.x < portal.x + portal.size &&
-            player.x + SIZE > portal.x &&
-            player.y < portal.y + portal.size &&
-            player.y + SIZE > portal.y
-        ) {
+        if (player.x < portal.x + portal.size && player.x + SIZE > portal.x && 
+            player.y < portal.y + portal.size && player.y + SIZE > portal.y) {
             nextHorde();
             return;
         }
     }
 
-    let weight =
-        inventory.invis * 1 +
-        inventory.wall * 2 +
-        inventory.slow * 3 +
-        inventory.bomb * 5;
-
+    let weight = inventory.invis*1 + inventory.wall*2 + inventory.slow*3 + inventory.bomb*5;
     let speedPct = Math.max(0.3, 1.0 - weight * 0.03);
-
     moveAccumulator += speedPct;
 
     if (moveAccumulator >= 1.0) {
-
         moveAccumulator -= 1.0;
-
         player.vx = inputX;
         player.vy = inputY;
 
         let nextX = player.x + player.vx;
         let nextY = player.y + player.vy;
 
-        if (
-            nextX >= 0 &&
-            nextX < WIDTH &&
-            nextY >= 0 &&
-            nextY < HEIGHT &&
-            !isBlackWall(nextX, nextY)
-        ) {
-
+        if (nextX >= 0 && nextX < WIDTH && nextY >= 0 && nextY < HEIGHT && !isBlackWall(nextX, nextY)) {
             player.x = nextX;
             player.y = nextY;
         }
 
-        let safeNow =
-            isSafe(player.x, player.y) ||
-            isWall(player.x, player.y);
+        let safeNow = isSafe(player.x, player.y) || isWall(player.x, player.y);
 
         if (!safeNow) {
-
+            // Regista a transição exata para não perder o primeiro bloco
             if (player.inSafeZone) {
-
                 player.inSafeZone = false;
-
-                trail.push({
-                    x: player.x,
-                    y: player.y
-                });
+                trail.push({ x: lastSafePos.x, y: lastSafePos.y });
             }
 
             let last = trail[trail.length - 1];
-
-            if (
-                !last ||
-                last.x !== player.x ||
-                last.y !== player.y
-            ) {
-
-                trail.push({
-                    x: player.x,
-                    y: player.y
-                });
+            if (!last || last.x !== player.x || last.y !== player.y) {
+                trail.push({ x: player.x, y: player.y });
             }
-        }
+        } 
         else {
-
             if (!player.inSafeZone && trail.length > 0) {
-
+                // Ao voltar à zona segura, regista o último bloco para selar o polígono
+                trail.push({ x: player.x, y: player.y });
+                
                 walls.push(...trail);
-
                 coins += trail.length;
-
                 trail = [];
-
                 checkTrappedEnemies();
             }
-
             player.inSafeZone = true;
+            lastSafePos = { x: player.x, y: player.y }; // Atualiza sempre a última posição segura
         }
     }
 
+    // Update bullets e enemies mantém-se igual...
     bullets.forEach((b, index) => {
-
-        b.x += b.vx;
-        b.y += b.vy;
-
-        if (
-            b.x < 0 ||
-            b.x > WIDTH ||
-            b.y < 0 ||
-            b.y > HEIGHT ||
-            isBlackWall(b.x, b.y)
-        ) {
-            bullets.splice(index, 1);
-            return;
+        b.x += b.vx; b.y += b.vy;
+        if (b.x < 0 || b.x > WIDTH || b.y < 0 || b.y > HEIGHT || isBlackWall(b.x, b.y)) {
+            bullets.splice(index, 1); return;
         }
-
         for (let i = 0; i < enemies.length; i++) {
-
             let e = enemies[i];
-
-            if (
-                Math.abs(b.x - e.x) < e.size &&
-                Math.abs(b.y - e.y) < e.size
-            ) {
-
-                e.hp--;
-
-                bullets.splice(index, 1);
-
-                checkDeadEnemies();
-
-                break;
+            if (Math.abs(b.x - e.x) < e.size && Math.abs(b.y - e.y) < e.size) {
+                e.hp--; bullets.splice(index, 1); checkDeadEnemies(); break;
             }
         }
     });
 
     enemies.forEach(enemy => {
-
         let mult = enemiesSlowed ? 0.3 : 1;
+        enemy.x += enemy.vx * mult; enemy.y += enemy.vy * mult;
 
-        enemy.x += enemy.vx * mult;
-        enemy.y += enemy.vy * mult;
+        if (enemy.x <= enemy.size || enemy.x >= WIDTH - enemy.size) enemy.vx *= -1;
+        if (enemy.y <= enemy.size || enemy.y >= HEIGHT - enemy.size) enemy.vy *= -1;
 
-        if (
-            enemy.x <= enemy.size ||
-            enemy.x >= WIDTH - enemy.size
-        ) enemy.vx *= -1;
-
-        if (
-            enemy.y <= enemy.size ||
-            enemy.y >= HEIGHT - enemy.size
-        ) enemy.vy *= -1;
-
-        if (
-            isSafe(enemy.x, enemy.y) ||
-            isWall(enemy.x, enemy.y) ||
-            isBlackWall(enemy.x, enemy.y)
-        ) {
-
-            enemy.vx *= -1;
-            enemy.vy *= -1;
+        if (isSafe(enemy.x, enemy.y) || isWall(enemy.x, enemy.y) || isBlackWall(enemy.x, enemy.y)) {
+            enemy.vx *= -1; enemy.vy *= -1;
         }
 
         if (!isInvincible) {
-
             for (let t of trail) {
-
-                if (
-                    Math.abs(t.x - enemy.x) < SIZE &&
-                    Math.abs(t.y - enemy.y) < SIZE
-                ) {
-
+                if (Math.abs(t.x - enemy.x) < SIZE && Math.abs(t.y - enemy.y) < SIZE) {
                     alert("GAME OVER! Horda: " + currentHorde);
-                    location.reload();
-                    return;
+                    location.reload(); return;
                 }
             }
         }
@@ -1042,180 +773,71 @@ function update() {
 }
 
 function draw() {
-
     ctx.fillStyle = enemiesSlowed ? "#081822" : "#0b0b12";
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
+    
     ctx.fillStyle = "#1a1a2e";
-
     ctx.fillRect(0, 0, WIDTH, SAFE_TOP);
-
-    ctx.fillRect(
-        0,
-        HEIGHT - SAFE_BORDER,
-        WIDTH,
-        SAFE_BORDER
-    );
-
-    ctx.fillRect(
-        0,
-        SAFE_TOP,
-        SAFE_BORDER,
-        HEIGHT - SAFE_TOP
-    );
-
-    ctx.fillRect(
-        WIDTH - SAFE_BORDER,
-        SAFE_TOP,
-        SAFE_BORDER,
-        HEIGHT - SAFE_TOP
-    );
-
+    ctx.fillRect(0, HEIGHT - SAFE_BORDER, WIDTH, SAFE_BORDER);
+    ctx.fillRect(0, SAFE_TOP, SAFE_BORDER, HEIGHT - SAFE_TOP);
+    ctx.fillRect(WIDTH - SAFE_BORDER, SAFE_TOP, SAFE_BORDER, HEIGHT - SAFE_TOP);
+    
     ctx.fillStyle = "#0f3460";
     ctx.fillRect(0, SAFE_TOP, WIDTH, 2);
 
     if (portal.active) {
-
-        ctx.fillStyle = "#0ff";
-        ctx.shadowBlur = 20;
-        ctx.shadowColor = "#0ff";
-
-        ctx.fillRect(
-            portal.x,
-            portal.y,
-            portal.size,
-            portal.size
-        );
-
+        ctx.fillStyle = "#0ff"; ctx.shadowBlur = 20; ctx.shadowColor = "#0ff";
+        ctx.fillRect(portal.x, portal.y, portal.size, portal.size);
         ctx.shadowBlur = 0;
     }
 
-    ctx.fillStyle = "#000";
-    ctx.strokeStyle = "#333";
-
+    ctx.fillStyle = "#000"; ctx.strokeStyle = "#333";
     blackWalls.forEach(bw => {
-
-        ctx.fillRect(bw.x, bw.y, bw.w, bw.h);
-        ctx.strokeRect(bw.x, bw.y, bw.w, bw.h);
+        ctx.fillRect(bw.x, bw.y, bw.w, bw.h); ctx.strokeRect(bw.x, bw.y, bw.w, bw.h);
     });
 
     ctx.fillStyle = "#4a4e69";
-
-    walls.forEach(w => {
-        ctx.fillRect(w.x, w.y, SIZE, SIZE);
-    });
+    walls.forEach(w => ctx.fillRect(w.x, w.y, SIZE, SIZE));
 
     ctx.fillStyle = isInvincible ? "#0ff" : "#0f3460";
-
-    trail.forEach(t => {
-        ctx.fillRect(t.x, t.y, SIZE, SIZE);
-    });
+    trail.forEach(t => ctx.fillRect(t.x, t.y, SIZE, SIZE));
 
     ctx.fillStyle = "#ffd700";
-
-    bullets.forEach(b => {
-
-        ctx.beginPath();
-        ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
-        ctx.fill();
-    });
+    bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill(); });
 
     enemies.forEach(e => {
-
         ctx.fillStyle = enemiesSlowed ? "#0aa" : "#e94560";
-
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2);
-        ctx.fill();
-
+        ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2); ctx.fill();
+        
         let hpWidth = (e.hp / e.maxHp) * (e.size * 2);
-
-        ctx.fillStyle = "#f00";
-
-        ctx.fillRect(
-            e.x - e.size,
-            e.y - e.size - 8,
-            e.size * 2,
-            4
-        );
-
-        ctx.fillStyle = "#0f0";
-
-        ctx.fillRect(
-            e.x - e.size,
-            e.y - e.size - 8,
-            hpWidth,
-            4
-        );
+        ctx.fillStyle = "#f00"; ctx.fillRect(e.x - e.size, e.y - e.size - 8, e.size * 2, 4);
+        ctx.fillStyle = "#0f0"; ctx.fillRect(e.x - e.size, e.y - e.size - 8, hpWidth, 4);
     });
 
     explosions.forEach((exp, i) => {
-
         exp.radius += 10;
-
-        ctx.beginPath();
-
-        ctx.arc(
-            exp.x,
-            exp.y,
-            exp.radius,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fillStyle =
-            exp.color +
-            (1 - exp.radius / exp.maxRadius) +
-            ")";
-
+        ctx.beginPath(); ctx.arc(exp.x, exp.y, exp.radius, 0, Math.PI * 2);
+        ctx.fillStyle = exp.color + (1 - exp.radius / exp.maxRadius) + ")";
         ctx.fill();
-
-        if (exp.radius >= exp.maxRadius) {
-            explosions.splice(i, 1);
-        }
+        if (exp.radius >= exp.maxRadius) explosions.splice(i, 1);
     });
 
     floatingTexts.forEach((ft, i) => {
-
-        ctx.fillStyle = ft.color;
-        ctx.font = "bold 16px Arial";
-
-        ctx.fillText(
-            ft.text,
-            ft.x - 20,
-            ft.y - (40 - ft.life)
-        );
-
+        ctx.fillStyle = ft.color; ctx.font = "bold 16px Arial";
+        ctx.fillText(ft.text, ft.x - 20, ft.y - (40 - ft.life));
         ft.life--;
-
-        if (ft.life <= 0) {
-            floatingTexts.splice(i, 1);
-        }
+        if (ft.life <= 0) floatingTexts.splice(i, 1);
     });
 
     ctx.fillStyle = "#0f0";
-
-    ctx.fillRect(
-        player.x,
-        player.y,
-        SIZE,
-        SIZE
-    );
+    ctx.fillRect(player.x, player.y, SIZE, SIZE);
 }
 
 generateBlackWalls();
-
-for (let i = 0; i < maxEnemiesOnScreen; i++) {
-    spawnEnemy();
-}
-
+for (let i = 0; i < maxEnemiesOnScreen; i++) spawnEnemy();
 updateUI();
 
-setInterval(() => {
-    update();
-    draw();
-}, 1000 / 30);
-
+setInterval(() => { update(); draw(); }, 1000 / 30);
 </script>
 </body>
 </html>
