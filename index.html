@@ -3,17 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Survival Art - Mobile & Peso</title>
+    <title>Survival Art - Preenchimento Perfeito</title>
     <style>
+        /* CORREÇÃO 1: Bloquear seleção de texto em TODO o jogo */
+        * { user-select: none; -webkit-user-select: none; box-sizing: border-box; }
+        
         body { background-color: #0b0b12; color: white; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; touch-action: none; overflow: hidden; }
-        #game-ui { display: flex; justify-content: space-between; width: 100%; max-width: 900px; margin-bottom: 5px; background: #1a1a2e; padding: 10px; border-radius: 8px; box-sizing: border-box; }
+        #game-ui { display: flex; justify-content: space-between; width: 100%; max-width: 900px; margin-bottom: 5px; background: #1a1a2e; padding: 10px; border-radius: 8px; }
         .ui-section { display: flex; flex-direction: column; align-items: center; }
         .ui-title { font-size: 10px; color: #888; text-transform: uppercase; }
         .ui-value { font-size: 16px; font-weight: bold; }
         
-        /* Controlo do Canvas para caber no telemóvel */
-        #canvas-container { max-width: 100%; overflow: auto; display: flex; justify-content: center; }
-        canvas { border: 2px solid #e94560; background-color: #000; box-shadow: 0 0 15px rgba(233, 69, 96, 0.3); max-width: 100%; height: auto; }
+        #canvas-container { max-width: 100%; display: flex; justify-content: center; }
+        canvas { border: 2px solid #e94560; background-color: #000; box-shadow: 0 0 15px rgba(233, 69, 96, 0.3); max-width: 100%; height: auto; image-rendering: pixelated; }
         
         .shop-panel { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; justify-content: center; max-width: 900px; }
         button { background: #16213e; color: white; border: 2px solid #0f3460; padding: 8px 10px; cursor: pointer; border-radius: 5px; font-weight: bold; font-size: 12px; }
@@ -21,13 +23,12 @@
         span.highlight { color: #ffd700; }
         span.danger { color: #e94560; }
 
-        /* CONTROLOS MOBILE (D-Pad e Botões) */
         #mobile-controls { display: flex; justify-content: space-between; width: 100%; max-width: 900px; margin-top: 10px; }
         .d-pad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); gap: 5px; }
-        .btn-dir { background: #1a1a2e; border: 2px solid #e94560; border-radius: 10px; color: white; font-size: 20px; font-weight: bold; opacity: 0.8; user-select: none; }
+        .btn-dir { background: #1a1a2e; border: 2px solid #e94560; border-radius: 10px; color: white; font-size: 20px; font-weight: bold; opacity: 0.8; }
         .btn-dir:active { background: #e94560; opacity: 1; }
         .action-buttons { display: grid; grid-template-columns: repeat(2, 60px); grid-template-rows: repeat(2, 60px); gap: 10px; align-content: end; }
-        .btn-act { background: #0f3460; border: 2px solid #0ff; border-radius: 50%; color: white; font-size: 12px; font-weight: bold; opacity: 0.8; user-select: none; }
+        .btn-act { background: #0f3460; border: 2px solid #0ff; border-radius: 50%; color: white; font-size: 12px; font-weight: bold; opacity: 0.8; }
         .btn-act:active { background: #0ff; color: black; opacity: 1; }
         
         .up { grid-column: 2; grid-row: 1; }
@@ -35,9 +36,7 @@
         .right { grid-column: 3; grid-row: 2; }
         .down { grid-column: 2; grid-row: 3; }
 
-        @media (min-width: 900px) {
-            #mobile-controls { display: none; } /* Esconde no PC */
-        }
+        @media (min-width: 900px) { #mobile-controls { display: none; } }
     </style>
 </head>
 <body>
@@ -105,14 +104,14 @@
     let player = { x: WIDTH / 2, y: 20, vx: 0, vy: 0, inSafeZone: true };
     let mouse = { x: WIDTH / 2, y: HEIGHT / 2 }; 
     
-    let moveAccumulator = 0.0; // Novo sistema para a velocidade/peso
+    let moveAccumulator = 0.0;
     
     let trail = []; let walls = []; let blackWalls = []; 
     let bullets = []; let explosions = []; let floatingTexts = []; 
     
     let portal = { active: false, x: 0, y: 0, size: 40 };
     let isInvincible = false;
-    let enemiesSlowed = false; // Novo efeito
+    let enemiesSlowed = false;
 
     let enemies = [];
     let enemiesKilled = 0;
@@ -126,7 +125,6 @@
         mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
     });
 
-    // Controlos Touch
     window.setDir = function(dx, dy) {
         if(dx !== 0 || dy !== 0) { inputX = dx * SIZE; inputY = dy * SIZE; } 
         else {
@@ -142,7 +140,7 @@
         let numBlocks = Math.min(currentHorde * 2, 8); 
         for (let i = 0; i < numBlocks; i++) {
             let bw = (Math.random() > 0.5 ? 2 : 4) * SIZE; let bh = (Math.random() > 0.5 ? 4 : 2) * SIZE;
-            let maxW = Math.max(1, WIDTH - SAFE_BORDER * 2 - bw); let maxH = Math.max(1, HEIGHT - SAFE_TOP - SAFE_BORDER - bh);
+            let maxW = Math.max(SIZE, WIDTH - SAFE_BORDER * 2 - bw); let maxH = Math.max(SIZE, HEIGHT - SAFE_TOP - SAFE_BORDER - bh);
             let bx = Math.floor((Math.random() * maxW) / SIZE) * SIZE + SAFE_BORDER;
             let by = Math.floor((Math.random() * maxH) / SIZE) * SIZE + SAFE_TOP;
             blackWalls.push({ x: bx, y: by, w: bw, h: bh });
@@ -209,7 +207,7 @@
         if (coins >= 1) {
             coins -= 1;
             let px = player.x + SIZE/2; let py = player.y + SIZE/2;
-            let vx = 15; let vy = 0; // Default direita
+            let vx = 15; let vy = 0; 
             if(dirX === 0 && dirY === 0) {
                 let dx = mouse.x - px; let dy = mouse.y - py;
                 let mag = Math.sqrt(dx*dx + dy*dy);
@@ -237,9 +235,8 @@
     function openPortal() { portal.active = true; portal.x = WIDTH / 2 - portal.size / 2; portal.y = SAFE_TOP / 2 - portal.size / 2; updateUI(); }
 
     function updateUI() {
-        // CÁLCULO DE PESO E VELOCIDADE
         let weight = (inventory.invis * 1) + (inventory.wall * 2) + (inventory.slow * 3) + (inventory.bomb * 5);
-        let speedPct = Math.max(30, 100 - (weight * 3)); // Cada KG tira 3% de velocidade (minimo 30%)
+        let speedPct = Math.max(30, 100 - (weight * 3)); 
         
         document.getElementById('coins').innerText = coins + " 🪙";
         document.getElementById('weight-display').innerText = weight + " KG";
@@ -263,49 +260,85 @@
 
     function nextHorde() {
         portal.active = false; currentHorde++; hordeTarget += 3; maxEnemiesOnScreen++; enemiesKilled = 0;
-        WIDTH = Math.min(WIDTH + 50, 1200); HEIGHT = Math.min(HEIGHT + 30, 800);
+        
+        // CORREÇÃO 2: O mapa agora cresce apenas em múltiplos de 20 (SIZE) para não quebrar a grelha e colar paredes na borda!
+        WIDTH = Math.min(WIDTH + 60, 1200); 
+        HEIGHT = Math.min(HEIGHT + 40, 800);
         canvas.width = WIDTH; canvas.height = HEIGHT;
-        player.x = WIDTH / 2; player.y = 20; trail = []; walls = []; bullets = [];
+        
+        // Colocar o jogador alinhado na grelha no topo
+        player.x = Math.floor((WIDTH / 2) / SIZE) * SIZE; 
+        player.y = 20; 
+        trail = []; walls = []; bullets = [];
         generateBlackWalls(); for(let i=0; i<maxEnemiesOnScreen; i++) spawnEnemy(); updateUI();
     }
 
+    // CORREÇÃO 3: LÓGICA DE PREENCHIMENTO (Flood-Fill da Área Livre)
     function checkTrappedEnemies() {
-        let playWidthGrids = (WIDTH - SAFE_BORDER * 2) / SIZE;
-        let playHeightGrids = (HEIGHT - SAFE_TOP - SAFE_BORDER) / SIZE;
-        let halfMapSize = (playWidthGrids * playHeightGrids) / 2;
-
-        enemies = enemies.filter(enemy => {
-            let startX = Math.floor(enemy.x / SIZE) * SIZE; let startY = Math.floor(enemy.y / SIZE) * SIZE;
-            let isTrapped = true;
-            
-            if (!isWall(startX, startY) && !isSafe(startX, startY) && !isBlackWall(startX, startY)) {
-                let queue = [{ x: startX, y: startY }]; let visited = new Set(); visited.add(`${startX},${startY}`);
-                let escapeFound = false;
-
-                while (queue.length > 0) {
-                    let curr = queue.shift();
-                    if (isSafe(curr.x, curr.y)) { isTrapped = false; escapeFound = true; break; }
-                    let neighbors = [ {x: curr.x+SIZE, y: curr.y}, {x: curr.x-SIZE, y: curr.y}, {x: curr.x, y: curr.y+SIZE}, {x: curr.x, y: curr.y-SIZE} ];
-
-                    for (let n of neighbors) {
-                        if (n.x >= 0 && n.x < WIDTH && n.y >= 0 && n.y < HEIGHT) {
-                            if (!isWall(n.x, n.y) && !isSafe(n.x, n.y) && !isBlackWall(n.x, n.y)) {
-                                let key = `${n.x},${n.y}`; if (!visited.has(key)) { visited.add(key); queue.push(n); }
-                            }
-                        }
+        let freeAir = new Set();
+        let queue = [];
+        
+        // 1. Procurar todos os espaços vazios encostados à Safe Zone (O ar livre que os inimigos devem alcançar)
+        for (let y = SAFE_TOP; y < HEIGHT - SAFE_BORDER; y += SIZE) {
+            for (let x = SAFE_BORDER; x < WIDTH - SAFE_BORDER; x += SIZE) {
+                if (!isWall(x, y) && !isBlackWall(x, y)) {
+                    if (isSafe(x - SIZE, y) || isSafe(x + SIZE, y) || isSafe(x, y - SIZE) || isSafe(x, y + SIZE)) {
+                        queue.push({x, y});
+                        freeAir.add(`${x},${y}`);
                     }
-                    if (visited.size > halfMapSize) { isTrapped = false; break; } 
                 }
             }
+        }
 
-            if (isTrapped) { 
+        // 2. Expandir essa área livre o máximo possível (como o balde do Paint)
+        while(queue.length > 0) {
+            let curr = queue.shift();
+            let neighbors = [ {x: curr.x+SIZE, y: curr.y}, {x: curr.x-SIZE, y: curr.y}, {x: curr.x, y: curr.y+SIZE}, {x: curr.x, y: curr.y-SIZE} ];
+            
+            for (let n of neighbors) {
+                // Se está dentro da área jogável
+                if (n.x >= SAFE_BORDER && n.x < WIDTH - SAFE_BORDER && n.y >= SAFE_TOP && n.y < HEIGHT - SAFE_BORDER) {
+                    if (!isWall(n.x, n.y) && !isBlackWall(n.x, n.y)) {
+                        let key = `${n.x},${n.y}`;
+                        if (!freeAir.has(key)) {
+                            freeAir.add(key);
+                            queue.push(n);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Tudo o que não for ar livre, transforma-se em parede maciça!
+        let filledCount = 0;
+        for (let y = SAFE_TOP; y < HEIGHT - SAFE_BORDER; y += SIZE) {
+            for (let x = SAFE_BORDER; x < WIDTH - SAFE_BORDER; x += SIZE) {
+                let key = `${x},${y}`;
+                if (!freeAir.has(key) && !isWall(x, y) && !isBlackWall(x, y)) {
+                    walls.push({x, y}); // Pinta o espaço vazio com parede
+                    filledCount++;
+                }
+            }
+        }
+        
+        if(filledCount > 0) coins += Math.floor(filledCount / 2); // Dá-te moedas extras por pintares mapa!
+
+        // 4. Esmagar os inimigos que ficaram soterrados
+        enemies = enemies.filter(enemy => {
+            let gridX = Math.floor(enemy.x / SIZE) * SIZE;
+            let gridY = Math.floor(enemy.y / SIZE) * SIZE;
+            let key = `${gridX},${gridY}`;
+
+            // Se a casa do inimigo não está no "Ar Livre" e ele não está na Safe Zone, MORRE.
+            if (!freeAir.has(key) && !isSafe(enemy.x, enemy.y)) {
                 enemy.hp = 0; coins += 50; 
                 explosions.push({ x: enemy.x, y: enemy.y, radius: 0, maxRadius: 60, color: "rgba(150, 0, 255, " }); 
-                floatingTexts.push({x: enemy.x, y: enemy.y, text: "+50🪙 PRESO!", life: 40, color: "#ffd700"});
+                floatingTexts.push({x: enemy.x, y: enemy.y, text: "ESMAGADO!", life: 40, color: "#ffd700"});
                 return false; 
             }
             return true;
         });
+        
         checkDeadEnemies();
     }
 
@@ -314,14 +347,13 @@
             if (player.x < portal.x + portal.size && player.x + SIZE > portal.x && player.y < portal.y + portal.size && player.y + SIZE > portal.y) { nextHorde(); return; }
         }
 
-        // --- SISTEMA DE PESO (Acumulador de Movimento) ---
         let weight = (inventory.invis * 1) + (inventory.wall * 2) + (inventory.slow * 3) + (inventory.bomb * 5);
-        let speedPct = Math.max(0.3, 1.0 - (weight * 0.03)); // Player Speed Ratio
+        let speedPct = Math.max(0.3, 1.0 - (weight * 0.03)); 
         
         moveAccumulator += speedPct;
 
         if (moveAccumulator >= 1.0) {
-            moveAccumulator -= 1.0; // Consome o tick de movimento
+            moveAccumulator -= 1.0; 
 
             let currentlySafe = isSafe(player.x, player.y) || isWall(player.x, player.y);
             if (currentlySafe) { player.vx = inputX; player.vy = inputY; } 
@@ -355,9 +387,7 @@
         });
 
         enemies.forEach(enemy => {
-            // EFEITO SLOW (30% da velocidade)
             let speedMult = enemiesSlowed ? 0.3 : 1.0;
-            
             enemy.x += enemy.vx * speedMult; enemy.y += enemy.vy * speedMult;
             
             if (enemy.x <= enemy.size || enemy.x >= WIDTH - enemy.size) enemy.vx *= -1;
@@ -378,7 +408,6 @@
     }
 
     function draw() {
-        // Se a habilidade Slow estiver ativa, o fundo fica levemente azul
         ctx.fillStyle = enemiesSlowed ? '#0b1a2a' : '#0b0b12'; 
         ctx.fillRect(0, 0, WIDTH, HEIGHT);
 
@@ -406,7 +435,7 @@
         ctx.fillStyle = '#ffd700'; bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill(); });
 
         enemies.forEach(e => {
-            ctx.fillStyle = enemiesSlowed ? '#0aa' : '#e94560'; // Inimigos ficam ciano se estiverem lentos
+            ctx.fillStyle = enemiesSlowed ? '#0aa' : '#e94560';
             ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI * 2); ctx.fill();
             let hpWidth = (e.hp / e.maxHp) * (e.size * 2);
             ctx.fillStyle = '#f00'; ctx.fillRect(e.x - e.size, e.y - e.size - 8, e.size * 2, 4);
@@ -431,7 +460,7 @@
     }
 
     setInterval(() => { update(); draw(); }, 1000 / 30);
-    updateUI(); // Chama no inicio para meter o peso a zeros visualmente
+    updateUI(); 
 </script>
 </body>
 </html>
